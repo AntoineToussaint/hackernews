@@ -44,6 +44,13 @@ export type StoryItem = {
   text: string | null;
   created_at_i: number;
   children: CommentNode[];
+  /**
+   * Top-level comment ids in HN's own ranked order. The Algolia mirror only
+   * ever hands back children in chronological order, so this comes from
+   * Firebase; null when that call fails, and the reader falls back to
+   * chronological.
+   */
+  rankedIds: number[] | null;
 };
 
 const FIREBASE = "https://hacker-news.firebaseio.com/v0";
@@ -127,8 +134,17 @@ function normalizeComments(node: AlgoliaItem): CommentNode {
 }
 
 export async function fetchStory(id: string | number): Promise<StoryItem> {
-  const data = await fetchJson<AlgoliaItem>(`${ALGOLIA}/items/${id}`);
+  // Two mirrors, in parallel: Algolia for the whole comment tree in one shot,
+  // Firebase purely for HN's ranking of the top-level comments. The ranking is
+  // a nice-to-have, so a failure there must not fail the story.
+  const [data, ranked] = await Promise.all([
+    fetchJson<AlgoliaItem>(`${ALGOLIA}/items/${id}`),
+    fetchJson<FirebaseItem>(`${FIREBASE}/item/${id}.json`)
+      .then((it) => it?.kids ?? null)
+      .catch(() => null),
+  ]);
   return {
+    rankedIds: ranked,
     id: data.id,
     title: data.title ?? "(untitled)",
     url: data.url,

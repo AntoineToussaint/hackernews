@@ -8,6 +8,8 @@ import {
   COMMENT_SORTS,
   type CommentSort,
 } from "./commentSort";
+import { filterParticipated, hasParticipated } from "./commentFilter";
+import { useHnUsername } from "./useHnUser";
 import { Upvote } from "./voteContext";
 import { getCommentForm } from "./auth";
 import { hostname, timeAgo } from "../../lib/format";
@@ -29,18 +31,42 @@ export function Story({ itemId, onBack }: ItemViewProps) {
   const [allCollapsed, setAllCollapsed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [sort, setSort] = useCommentSort();
+  const [mineOnly, setMineOnly] = useState(false);
+  const me = useHnUsername();
 
-  // Sorting the whole tree once here (rather than per <Comment>) keeps replies
-  // in the same order as their parents and costs nothing while scrolling.
-  const comments = useMemo(
-    () => (story ? sortComments(story.children, sort, story.rankedIds) : []),
-    [story, sort],
+  const canFilterMine = useMemo(
+    () => (story ? hasParticipated(story.children, me) : false),
+    [story, me],
   );
+
+  // Filter, then sort — both pure, and done once here rather than per
+  // <Comment>, so replies stay in step with their parents.
+  const comments = useMemo(() => {
+    if (!story) return [];
+    const visible =
+      mineOnly && canFilterMine
+        ? filterParticipated(story.children, me)
+        : story.children;
+    return sortComments(visible, sort, story.rankedIds);
+  }, [story, sort, mineOnly, canFilterMine, me]);
+
+  const total = useMemo(
+    () => (story ? countAll(story.children) : 0),
+    [story],
+  );
+  const shown = useMemo(() => countAll(comments), [comments]);
 
   const toggleCollapseAll = () => {
     setAllCollapsed((v) => !v);
     setCollapseNonce((n) => n + 1);
   };
+
+  // The sort is a lasting preference; "Mine" is about one thread, and leaving
+  // it on would make the next story look almost empty. Reset per story — but
+  // not on reloadKey, so posting a reply doesn't drop you out of your filter.
+  useEffect(() => {
+    setMineOnly(false);
+  }, [itemId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,10 +131,19 @@ export function Story({ itemId, onBack }: ItemViewProps) {
             <div>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-1">
               <h3 className="text-xs font-medium uppercase tracking-wider text-[color:var(--color-fg-muted)]">
-                {countAll(story.children)} comments
+                {mineOnly && canFilterMine
+                  ? `${shown} of ${total} comments`
+                  : `${total} comments`}
               </h3>
               {story.children.length > 0 && (
                 <div className="flex items-center gap-3">
+                  {canFilterMine && (
+                    <MineToggle
+                      on={mineOnly}
+                      onChange={setMineOnly}
+                      username={me}
+                    />
+                  )}
                   <SortTabs value={sort} onChange={setSort} />
                   <button
                     type="button"
@@ -136,6 +171,7 @@ export function Story({ itemId, onBack }: ItemViewProps) {
                       node={c}
                       depth={0}
                       op={story.author}
+                      me={me}
                       collapseSignal={collapseNonce}
                       collapseTo={allCollapsed}
                       onReplyPosted={() => setReloadKey((k) => k + 1)}
@@ -214,6 +250,52 @@ function StoryHeader({ story }: { story: StoryItem }) {
         </div>
       </div>
     </article>
+  );
+}
+
+/**
+ * "Mine" filter — only rendered when the signed-in user actually commented on
+ * this story, so it never appears as a toggle that does nothing.
+ */
+function MineToggle({
+  on,
+  onChange,
+  username,
+}: {
+  on: boolean;
+  onChange: (v: boolean) => void;
+  username: string | null;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      title={
+        on
+          ? "Showing only threads you took part in"
+          : `Show only threads ${username ?? "you"} took part in`
+      }
+      onClick={() => onChange(!on)}
+      className={
+        "relative whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium transition " +
+        (on
+          ? "text-[color:var(--color-fg)]"
+          : "text-[color:var(--color-fg-muted)] hover:text-[color:var(--color-fg)]")
+      }
+    >
+      {on && (
+        <span className="accent-bg absolute inset-0 -z-10 rounded-full opacity-15" />
+      )}
+      <span
+        className={
+          "absolute inset-0 -z-10 rounded-full ring-1 " +
+          (on
+            ? "ring-[color:var(--color-accent)]/60"
+            : "ring-[color:var(--color-border)]")
+        }
+      />
+      Mine
+    </button>
   );
 }
 

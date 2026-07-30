@@ -23,6 +23,8 @@ standalone web build of the same reader.
 - Save/bookmark, mute domains, collapse threads, default feed
 - **Reorder any comment thread** — HN's own ranking, newest, oldest, or most
   replies; your choice is remembered across stories
+- **"Mine" filter** — narrow a thread to the branches you took part in, with
+  the comments above yours kept for context and the replies to you kept below
 - Optional **inline article previews** — read the linked page (clean text +
   image) without leaving HN
 - Optional **AI brief** (off by default, bring your own key) — summarizes the
@@ -135,6 +137,8 @@ src/
       index.ts          # hnSource: Source
       api.ts            # Firebase + Algolia clients
       commentSort.ts    # thread reordering (best/newest/oldest/replies)
+      commentFilter.ts  # "Mine": prune a thread to branches you took part in
+      useHnUser.ts      # the signed-in HN account (extension only)
       auth.ts           # vote / comment / reply via the user's session
       article.ts        # fetch + Readability + DOMPurify for previews
       Feed.tsx Story.tsx StoryCard.tsx Comment.tsx ArticlePeek.tsx CommentBox.tsx

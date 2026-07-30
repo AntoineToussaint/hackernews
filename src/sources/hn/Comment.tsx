@@ -21,6 +21,8 @@ type Props = {
   depth: number;
   /** The story's author, so we can badge their comments as OP. */
   op?: string | null;
+  /** The signed-in user, so we can badge their own comments. */
+  me?: string | null;
   /** Bumped by "collapse all / expand all"; applies collapseTo when it changes. */
   collapseSignal?: number;
   collapseTo?: boolean;
@@ -32,6 +34,7 @@ export function Comment({
   node,
   depth,
   op,
+  me,
   collapseSignal,
   collapseTo,
   onReplyPosted,
@@ -42,6 +45,7 @@ export function Comment({
   const isDeleted = !node.author && !node.text;
   const replyCount = countDescendants(node);
   const isOp = !!op && node.author === op;
+  const isMine = !!me && node.author === me;
 
   // Respond to a collapse-all / expand-all signal from the story view.
   useEffect(() => {
@@ -93,6 +97,11 @@ export function Comment({
         {isOp && (
           <span className="accent-bg rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wide text-white">
             OP
+          </span>
+        )}
+        {isMine && (
+          <span className="accent-text rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none tracking-wide ring-1 ring-[color:var(--color-accent)]/50">
+            You
           </span>
         )}
         <span>·</span>
@@ -156,6 +165,7 @@ export function Comment({
                   node={c}
                   depth={depth + 1}
                   op={op}
+                  me={me}
                   onReplyPosted={onReplyPosted}
                 />
               ))}

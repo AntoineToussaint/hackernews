@@ -1,6 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ItemViewProps } from "../types";
-import { fetchStory, type CommentNode, type StoryItem } from "./api";
+import { fetchStory, type StoryItem } from "./api";
+import {
+  countAll,
+  sortComments,
+  useCommentSort,
+  COMMENT_SORTS,
+  type CommentSort,
+} from "./commentSort";
 import { Upvote } from "./voteContext";
 import { getCommentForm } from "./auth";
 import { hostname, timeAgo } from "../../lib/format";
@@ -21,6 +28,14 @@ export function Story({ itemId, onBack }: ItemViewProps) {
   const [collapseNonce, setCollapseNonce] = useState(0);
   const [allCollapsed, setAllCollapsed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [sort, setSort] = useCommentSort();
+
+  // Sorting the whole tree once here (rather than per <Comment>) keeps replies
+  // in the same order as their parents and costs nothing while scrolling.
+  const comments = useMemo(
+    () => (story ? sortComments(story.children, sort, story.rankedIds) : []),
+    [story, sort],
+  );
 
   const toggleCollapseAll = () => {
     setAllCollapsed((v) => !v);
@@ -88,18 +103,21 @@ export function Story({ itemId, onBack }: ItemViewProps) {
               onPosted={() => setReloadKey((k) => k + 1)}
             />
             <div>
-            <div className="mb-3 flex items-center justify-between px-1">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-1">
               <h3 className="text-xs font-medium uppercase tracking-wider text-[color:var(--color-fg-muted)]">
-                {countComments(story)} comments
+                {countAll(story.children)} comments
               </h3>
               {story.children.length > 0 && (
-                <button
-                  type="button"
-                  onClick={toggleCollapseAll}
-                  className="text-xs font-medium text-[color:var(--color-fg-muted)] transition hover:text-[color:var(--color-accent)]"
-                >
-                  {allCollapsed ? "Expand all" : "Collapse all"}
-                </button>
+                <div className="flex items-center gap-3">
+                  <SortTabs value={sort} onChange={setSort} />
+                  <button
+                    type="button"
+                    onClick={toggleCollapseAll}
+                    className="text-xs font-medium text-[color:var(--color-fg-muted)] transition hover:text-[color:var(--color-accent)]"
+                  >
+                    {allCollapsed ? "Expand all" : "Collapse all"}
+                  </button>
+                </div>
               )}
             </div>
             {story.children.length === 0 ? (
@@ -108,7 +126,7 @@ export function Story({ itemId, onBack }: ItemViewProps) {
               </div>
             ) : (
               <ul className="space-y-3">
-                {story.children.map((c, i) => (
+                {comments.map((c, i) => (
                   <li
                     key={c.id}
                     className="fade-in-up"
@@ -199,14 +217,43 @@ function StoryHeader({ story }: { story: StoryItem }) {
   );
 }
 
-function countComments(story: StoryItem): number {
-  let n = 0;
-  const walk = (children: CommentNode[]) => {
-    for (const c of children) {
-      n++;
-      walk(c.children);
-    }
-  };
-  walk(story.children);
-  return n;
+/** Pill row for reordering the thread; mirrors the feed tabs in the header. */
+function SortTabs({
+  value,
+  onChange,
+}: {
+  value: CommentSort;
+  onChange: (s: CommentSort) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Sort comments"
+      className="flex items-center gap-0.5"
+    >
+      {COMMENT_SORTS.map((s) => {
+        const active = s.id === value;
+        return (
+          <button
+            key={s.id}
+            type="button"
+            title={s.title}
+            aria-pressed={active}
+            onClick={() => onChange(s.id)}
+            className={
+              "relative whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium transition " +
+              (active
+                ? "text-[color:var(--color-fg)]"
+                : "text-[color:var(--color-fg-muted)] hover:text-[color:var(--color-fg)]")
+            }
+          >
+            {active && (
+              <span className="absolute inset-0 -z-10 rounded-full bg-[color:var(--color-bg-elev)] ring-1 ring-[color:var(--color-border)]" />
+            )}
+            {s.label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }

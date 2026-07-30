@@ -21,6 +21,8 @@ standalone web build of the same reader.
 - **Upvote, comment, and reply** on your real HN account (no passwords stored)
 - Read/seen dimming, velocity 🔥 badges, "OP" badges on submitter comments
 - Save/bookmark, mute domains, collapse threads, default feed
+- **Reorder any comment thread** — HN's own ranking, newest, oldest, or most
+  replies; your choice is remembered across stories
 - Optional **inline article previews** — read the linked page (clean text +
   image) without leaving HN
 - Optional **AI brief** (off by default, bring your own key) — summarizes the
@@ -109,7 +111,10 @@ that needs the extension's same-origin session). It also serves
   from the toolbar **popup** (`src/popup.tsx`).
 - **Data:** feeds from the official
   [HN Firebase API](https://github.com/HackerNews/API); comment trees from the
-  [HN Algolia API](https://hn.algolia.com/api).
+  [HN Algolia API](https://hn.algolia.com/api). Algolia returns a thread
+  strictly chronologically, so opening a story also pulls the story's `kids`
+  from Firebase — that array is HN's ranking, and it's what the "Best" comment
+  sort restores.
 
 ## Project layout
 
@@ -129,6 +134,7 @@ src/
     hn/                 # the Hacker News skin
       index.ts          # hnSource: Source
       api.ts            # Firebase + Algolia clients
+      commentSort.ts    # thread reordering (best/newest/oldest/replies)
       auth.ts           # vote / comment / reply via the user's session
       article.ts        # fetch + Readability + DOMPurify for previews
       Feed.tsx Story.tsx StoryCard.tsx Comment.tsx ArticlePeek.tsx CommentBox.tsx

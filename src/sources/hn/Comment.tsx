@@ -5,6 +5,7 @@ import { CommentBox } from "./CommentBox";
 import { getReplyForm } from "./auth";
 import { isExtension } from "../../lib/runtime";
 import { timeAgo } from "../../lib/format";
+import { countDescendants } from "./commentSort";
 
 const DEPTH_HUES = [
   "#ff5c1a",
@@ -164,13 +165,4 @@ export function Comment({
       )}
     </div>
   );
-}
-
-function countDescendants(node: CommentNode): number {
-  let n = 0;
-  for (const c of node.children) {
-    n++;
-    n += countDescendants(c);
-  }
-  return n;
 }
